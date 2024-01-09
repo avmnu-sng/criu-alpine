@@ -34,7 +34,7 @@ jobs:
         id: base-image-version
         run: |
           base_image_version=$(echo ${{ matrix.base }} | cut -d@ -f1 | tr ':' '-')
-          tag="avmnusng/criu-${{ matrix.criu }}-${{ matrix.nftables }}:${base_image_version}"
+          tag="avmnusng/criu-${{ matrix.nftables }}:criu-${{ matrix.criu }}-${base_image_version}"
 
           echo "TAG=${tag}" >> $GITHUB_ENV
           echo "TAG_TEST=${tag}-test" >> $GITHUB_ENV
