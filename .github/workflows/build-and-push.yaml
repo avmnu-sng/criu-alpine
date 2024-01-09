@@ -1,0 +1,95 @@
+name: build-and-push
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  PLATFORM: "linux/amd64"
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        base:
+          - "alpine:3.18.5@sha256:d695c3de6fcd8cfe3a6222b0358425d40adfd129a8a47c3416faff1a8aece389"
+        criu:
+          - "3.19"
+        nftables:
+          - "with-nftables"
+          - "without-nftables"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Get base image version
+        id: base-image-version
+        run: |
+          base_image_version=$(echo ${{ matrix.base }} | cut -d@ -f1 | tr ':' '-')
+          tag="avmnusng/criu-${{ matrix.criu }}-${{ matrix.nftables }}:${base_image_version}"
+
+          echo "TAG=${tag}" >> $GITHUB_ENV
+          echo "TAG_TEST=${tag}-test" >> $GITHUB_ENV
+
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: "."
+          file: ${{ matrix.nftables }}.Dockerfile
+          platforms: ${{ env.PLATFORM }}
+          load: true
+          tags: ${{ env.TAG_TEST }}
+          build-args: |
+            PLATFORM=${{ env.PLATFORM }}
+            BASE=${{ matrix.base }}
+            CRIU_VERSION=${{ matrix.criu }}
+
+      - name: Test
+        run: docker run --rm --privileged ${{ env.TAG_TEST }} criu check
+
+      - name: Test multi-stage build
+        run: |
+          cat <<EOF >> ${{ matrix.nftables }}-multi-stage.Dockerfile
+          FROM --platform=${{ env.PLATFORM }} ${{ matrix.base }}
+          COPY --from=${{ env.TAG_TEST }} /criu/ /
+          EOF
+
+          if [[ $? != 0 ]]; then
+            exit 1
+          fi
+
+          docker build \
+            -t ${{ matrix.nftables }}-multi-stage:test \
+            -f ${{ matrix.nftables }}-multi-stage.Dockerfile \
+            . && \
+
+          docker run --rm --privileged ${{ matrix.nftables }}-multi-stage:test criu check
+
+      - name: Login to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: "."
+          file: ${{ matrix.nftables }}.Dockerfile
+          platforms: ${{ env.PLATFORM }}
+          push: true
+          tags: ${{ env.TAG }}
+          build-args: |
+            PLATFORM=${{ env.PLATFORM }}
+            BASE=${{ matrix.base }}
+            CRIU_VERSION=${{ matrix.criu }}
