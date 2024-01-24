@@ -18,6 +18,8 @@ jobs:
         base:
           - "alpine:3.18.5@sha256:d695c3de6fcd8cfe3a6222b0358425d40adfd129a8a47c3416faff1a8aece389"
         criu:
+          - "3.17"
+          - "3.18"
           - "3.19"
         nftables:
           - "with-nftables"
