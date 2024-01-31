@@ -12,4 +12,7 @@ then:
 FROM --platform=amd64 alpine:3.18.5@sha256:d695c3de6fcd8cfe3a6222b0358425d40adfd129a8a47c3416faff1a8aece389
 
 COPY --from=criu-with-nftables:criu-3.19-alpine-3.18.5 /criu/ /
+
+# Install deps
+RUN apk --update --no-cache add libnet libnl3 nftables protobuf-c
 ```

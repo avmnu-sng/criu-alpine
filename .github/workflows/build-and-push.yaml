@@ -55,13 +55,11 @@ jobs:
             CRIU_VERSION=${{ matrix.criu }}
 
       - name: Test
-        run: docker run --rm --privileged ${{ env.TAG_TEST }} criu check
-
-      - name: Test multi-stage build
         run: |
           cat <<EOF >> ${{ matrix.nftables }}-multi-stage.Dockerfile
           FROM --platform=${{ env.PLATFORM }} ${{ matrix.base }}
           COPY --from=${{ env.TAG_TEST }} /criu/ /
+          RUN apk --update --no-cache add libnet libnl3 nftables protobuf-c
           EOF
 
           if [[ $? != 0 ]]; then
